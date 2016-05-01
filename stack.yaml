@@ -7,6 +7,10 @@ resolver: lts-5.14
 # Local packages, usually specified by relative directory name
 packages:
 - '.'
+- location:
+    git: git@github.com:morishin/hsmecab.git
+    commit: 2da6677fbd42bb77d3b6e61c02edfeebe248e184
+
 # Packages to be pulled from upstream that are not in the resolver (e.g., acme-missiles-0.3)
 extra-deps: []
 
@@ -29,7 +33,7 @@ extra-package-dbs: []
 
 # Extra directories used by stack for building
 # extra-include-dirs: [/path/to/dir]
-# extra-lib-dirs: [/path/to/dir]
+extra-lib-dirs: [/usr/local/lib]
 
 # Allow a newer minor version of GHC than the snapshot specifies
 # compiler-check: newer-minor
