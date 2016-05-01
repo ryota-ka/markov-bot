@@ -1,8 +1,8 @@
 name:                markov-bot
 version:             0.1.0.0
-synopsis:            Initial project template from stack
+synopsis:            generateSentence >>= postToTwitter
 description:         Please see README.md
-homepage:            https://github.com/ryota-ka/markov-bot#readme
+homepage:            https://github.com/ryota-ka/markov-bot
 license:             BSD3
 license-file:        LICENSE
 author:              Ryota Kameoka
@@ -15,7 +15,7 @@ cabal-version:       >=1.10
 
 library
   hs-source-dirs:      src
-  exposed-modules:   , Web.MarkovBot
+  exposed-modules:     Web.MarkovBot
                      , Web.MarkovBot.MarkovChain
                      , Web.MarkovBot.Status
   build-depends:       base >= 4.7 && < 5
