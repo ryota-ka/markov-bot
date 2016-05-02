@@ -1,16 +1,24 @@
 module Web.MarkovBot.MarkovChain (
-    generatePoem
+    buildTable
+  , generatePoem
+  , Table
 ) where
 
 import Prelude hiding (Word)
 import Control.Monad (join)
-import qualified Data.Map as Map
+import qualified Data.Map as M
+import Data.List (unfoldr)
+import Data.Maybe (fromMaybe)
 import System.Random (randomRIO)
 import Data.Maybe (isNothing, fromMaybe, fromJust)
 import Data.List (intercalate)
 import Text.MeCab
 
-data Word = Begin | Middle String | End deriving (Eq, Show)
+data Word = Begin | Middle String | End deriving (Eq, Ord, Show)
+data Rose a = Rose a a [Rose a] deriving (Show)
+
+type Table = M.Map (Word, Word) [Word]
+type Triple = (Word, Word, Word)
 
 fromWord :: Word -> String
 fromWord (Middle x) = x
@@ -29,51 +37,45 @@ toWords xs = Begin : init (convert xs)
                      then End : Begin : convert xs
                      else Middle x : convert xs
 
-sample :: [a] -> IO (Maybe a)
-sample [] = return Nothing
-sample xs = return <$> randomOne xs
-  where
-    randomOne xs = (xs !!) <$> randomRIO (0, length xs - 1)
+sample :: [a] -> IO a
+sample [] = error "empty list"
+sample xs = (xs !!) <$> randomRIO (0, length xs - 1)
 
-generateTable :: Int -> [Word] -> [[Word]]
-generateTable _ [] = []
-generateTable n xxs@(x:xs)
-  | length xxs < n = []
-  | End `elem` init part = generateTable n xs
-  | otherwise = part : generateTable n xs
-  where
-    part = take n xxs
+generateTable :: [Word] -> Table
+generateTable (a:b:c:xs)
+  | a == End || b == End = generateTable rest
+  | otherwise = let table = generateTable rest in prepend (a, b) c table
+    where prepend key value map = M.insert key (value : (fromMaybe [] (M.lookup key map))) map
+          rest = b:c:xs
+generateTable _ = M.empty
 
-initialWords :: [[Word]] -> IO (Maybe [Word])
-initialWords table = sample (filter f table)
-  where
-    f (x:xs) = x == Begin
+nextWords :: Table -> (Word, Word) -> [Word]
+nextWords table key = fromMaybe [] $ M.lookup key table
 
-nextWords :: [[Word]] -> [Word] -> IO (Maybe [Word])
-nextWords _ [] = return Nothing
-nextWords table prefix = sample (filter f table)
-  where
-    f xs = init xs == prefix
+buildRoseTree :: Table -> (Word, Word) -> Rose Word
+buildRoseTree table (a, b) = Rose a b $ map (\w -> buildRoseTree table (b, w)) (nextWords table (a, b))
 
-chainWords :: [[Word]] -> [Word] -> String -> IO String
-chainWords table prefix chain = do
-  next <- nextWords table prefix
-  if last prefix == End
-  then return chain
-  else case next of
-    Nothing -> return chain
-    Just ws -> chainWords table (tail ws) (chain ++ maybe "" fromWord (last <$> next))
+randomlyWalkRoseTree :: Rose Word -> IO [Word]
+randomlyWalkRoseTree rose =
+    let f yieldedValues (Rose a b roses) =
+          if null roses || a == End || b == End
+             then pure (yieldedValues, Rose a b [])
+             else sample roses >>= f (b:yieldedValues)
+        in fst <$> f [] rose
 
-generatePoem :: String -> IO String
-generatePoem source = do
-  mecab <- new ["mecab", "-l0"]
-  nodeLines <- mapM (parseToNodes mecab) (lines source)
-  let wordLines = map (filter (not . null) . map nodeSurface) nodeLines
-  let allWords = intercalate ["\n"] wordLines
+buildTable :: String -> IO Table
+buildTable source = do
+    mecab <- new ["mecab", "-l0"]
+    nodeLines <- mapM (parseToNodes mecab) (lines source)
 
-  let table = generateTable 3 (toWords allWords)
+    let wordLines = map (filter (not . null) . map nodeSurface) nodeLines
+        allWords = intercalate ["\n"] wordLines
+        table = generateTable (toWords allWords)
 
-  begin <- initialWords table
-  case begin of
-    Nothing -> return ""
-    Just ws -> chainWords table (tail ws) $ fromWords ws
+    return table
+
+generatePoem :: Table -> IO String
+generatePoem table = do
+    (_, first) <- sample . filter ((== Begin) . fst) . M.keys $ table
+    let tree = buildRoseTree table (Begin, first)
+    fromWords . reverse <$> randomlyWalkRoseTree tree

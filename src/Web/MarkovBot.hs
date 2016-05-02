@@ -4,7 +4,7 @@
 module Web.MarkovBot(
     getTwInfoFromEnv
   , textSourceFromFilePath
-  , postPoemWithSource
+  , postPoemWithTable
 ) where
 
 import Control.Monad.Trans.Resource (runResourceT)
@@ -17,7 +17,7 @@ import Network.HTTP.Conduit (
   )
 import Web.Authenticate.OAuth (def, newCredential, oauthConsumerKey, oauthConsumerSecret)
 import Web.Twitter.Conduit (call, setCredential, TWInfo, twitterOAuth, update)
-import Web.MarkovBot.MarkovChain (generatePoem)
+import Web.MarkovBot.MarkovChain (generatePoem, Table)
 import Web.MarkovBot.Status (Status(..), statusForCSVRecord, statusIsRetweet)
 import System.Environment (lookupEnv)
 import Text.CSV (CSV, parseCSVFromFile)
@@ -53,9 +53,9 @@ textSourceFromTweetsCSV = intercalate "\n"
                   . init
                   . tail
 
-postPoemWithSource :: TWInfo -> String -> IO ()
-postPoemWithSource twInfo src = do
-    text <- T.pack <$> generatePoem src
+postPoemWithTable :: TWInfo -> Table -> IO ()
+postPoemWithTable twInfo table = do
+    text <- T.pack <$> generatePoem table
     manager <- newManager tlsManagerSettings
     !status <- runResourceT $ call twInfo manager (update text)
     return ()
