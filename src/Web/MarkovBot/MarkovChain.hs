@@ -18,7 +18,6 @@ data Word = Begin | Middle String | End deriving (Eq, Ord, Show)
 data Rose a = Rose a a [Rose a] deriving (Show)
 
 type Table = M.Map (Word, Word) [Word]
-type Triple = (Word, Word, Word)
 
 fromWord :: Word -> String
 fromWord (Middle x) = x
