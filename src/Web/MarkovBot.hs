@@ -3,13 +3,16 @@
 
 module Web.MarkovBot(
     getTwInfoFromEnv
-  , textSourceFromFilePath
+  , textSourceFromTweetsCSV
   , postPoemWithTable
 ) where
 
 import Control.Monad.Trans.Resource (runResourceT)
-import qualified Data.ByteString.Char8 as B
+import qualified Data.ByteString.Char8 as BS
+import qualified Data.ByteString.Lazy.Char8 as BL
+import Data.Csv (decode, HasHeader(..))
 import Data.List (intercalate, isInfixOf)
+import qualified Data.Vector as V
 import qualified Data.Text as T
 import Network.HTTP.Conduit (
     newManager
@@ -18,9 +21,8 @@ import Network.HTTP.Conduit (
 import Web.Authenticate.OAuth (def, newCredential, oauthConsumerKey, oauthConsumerSecret)
 import Web.Twitter.Conduit (call, setCredential, TWInfo, twitterOAuth, update)
 import Web.MarkovBot.MarkovChain (generatePoem, Table)
-import Web.MarkovBot.Status (Status(..), statusForCSVRecord, statusIsRetweet)
+import Web.MarkovBot.Status (Status(..), statusIsRetweet)
 import System.Environment (lookupEnv)
-import Text.CSV (CSV, parseCSVFromFile)
 
 getTwInfoFromEnv :: IO (Maybe TWInfo)
 getTwInfoFromEnv = do
@@ -30,7 +32,7 @@ getTwInfoFromEnv = do
                , "MARKOV_BOT_ACCESS_TOKEN"
                , "MARKOV_BOT_ACCESS_TOKEN_SECRET"
                ]
-    [consumerKey, consumerSecret, accessToken, accessTokenSecret] <- map (fmap B.pack) <$> traverse lookupEnv keys
+    [consumerKey, consumerSecret, accessToken, accessTokenSecret] <- map (fmap BS.pack) <$> traverse lookupEnv keys
     let tokens = buildOAuth <$> consumerKey <*> consumerSecret
         credential = newCredential <$> accessToken <*> accessTokenSecret
     return $ setCredential <$> tokens <*> credential <*> pure def
@@ -39,19 +41,19 @@ getTwInfoFromEnv = do
                                                , oauthConsumerSecret = secret
                                                }
 
-textSourceFromFilePath :: FilePath -> IO String
-textSourceFromFilePath path =
-    textSourceFromTweetsCSV . either (error "Failed to parse tweets.csv") id <$> parseCSVFromFile path
+textSourceFromTweetsCSV :: FilePath -> IO String
+textSourceFromTweetsCSV = fmap textSourceFromStatusesVector . statusesFromTweetsCSV
 
-textSourceFromTweetsCSV :: CSV -> String
-textSourceFromTweetsCSV = intercalate "\n"
-                  . map statusText
-                  . filter (not . isInfixOf "http" . statusText )
-                  . filter (notElem '@' . statusText)
-                  . filter (not . statusIsRetweet)
-                  . map statusForCSVRecord
-                  . init
-                  . tail
+statusesFromTweetsCSV :: FilePath -> IO (V.Vector Status)
+statusesFromTweetsCSV path = either (error "Failed to parse CSV file") id . decode HasHeader <$> BL.readFile path
+
+textSourceFromStatusesVector :: V.Vector Status -> String
+textSourceFromStatusesVector = intercalate "\n"
+                  . V.toList
+                  . V.map statusText
+                  . V.filter (not . isInfixOf "http" . statusText)
+                  . V.filter (notElem '@' . statusText)
+                  . V.filter (not . statusIsRetweet)
 
 postPoemWithTable :: TWInfo -> Table -> IO ()
 postPoemWithTable twInfo table = do

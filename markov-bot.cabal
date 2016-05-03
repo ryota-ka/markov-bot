@@ -21,8 +21,8 @@ library
   build-depends:       base >= 4.7 && < 5
                      , authenticate-oauth
                      , bytestring
+                     , cassava
                      , containers
-                     , csv
                      , http-conduit
                      , mecab
                      , random
@@ -31,6 +31,7 @@ library
                      , twitter-types
                      , text
                      , time
+                     , vector
   default-language:    Haskell2010
 
 executable markov-bot-exe
