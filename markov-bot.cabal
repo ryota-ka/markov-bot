@@ -24,6 +24,7 @@ library
                      , cassava
                      , containers
                      , http-conduit
+                     , lens
                      , mecab
                      , random
                      , resourcet
@@ -32,6 +33,7 @@ library
                      , text
                      , time
                      , vector
+                     , wreq
   default-language:    Haskell2010
 
 executable markov-bot-exe

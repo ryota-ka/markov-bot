@@ -4,11 +4,13 @@ module Main where
 
 import Control.Concurrent (threadDelay)
 import Control.Monad (when)
+import Data.Bool (bool)
+import Data.List (isPrefixOf)
 import Data.Time (getCurrentTime, utctDayTime)
 import Options.Applicative
 import System.Environment (getArgs)
 import System.Exit (exitFailure)
-import Web.MarkovBot (getTwInfoFromEnv, textSourceFromTweetsCSV, postPoemWithTable)
+import Web.MarkovBot (getTwInfoFromEnv, textSourceFromRemoteTweetsCSV, textSourceFromTweetsCSV, postPoemWithTable)
 import Web.MarkovBot.MarkovChain (buildTable)
 
 data Options = Options
@@ -39,9 +41,10 @@ execute :: Options -> IO ()
 execute opts =
     let interval = optionsInterval opts
         tweetsCSV = optionsTweetsCSV opts
+        isURL = "http" `isPrefixOf` tweetsCSV
      in do
         !twInfo <- getTwInfoFromEnv >>= maybe (putStrLn "environment variables are not set" >> exitFailure) return
-        !table <- textSourceFromTweetsCSV tweetsCSV >>= buildTable
+        !table <- bool textSourceFromTweetsCSV textSourceFromRemoteTweetsCSV isURL tweetsCSV >>= buildTable
         let go = (== 0) . (`mod` interval) . floor . utctDayTime <$> getCurrentTime
              >>= flip when (postPoemWithTable twInfo table)
               >> threadDelay 1000000

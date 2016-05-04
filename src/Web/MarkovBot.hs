@@ -3,10 +3,12 @@
 
 module Web.MarkovBot(
     getTwInfoFromEnv
+  , textSourceFromRemoteTweetsCSV
   , textSourceFromTweetsCSV
   , postPoemWithTable
 ) where
 
+import Control.Lens ((^.))
 import Control.Monad.Trans.Resource (runResourceT)
 import qualified Data.ByteString.Char8 as BS
 import qualified Data.ByteString.Lazy.Char8 as BL
@@ -18,11 +20,18 @@ import Network.HTTP.Conduit (
     newManager
   , tlsManagerSettings
   )
+import Network.HTTP.Conduit (
+    newManager
+  , tlsManagerSettings
+  )
+import Network.Wreq (get, responseBody)
 import Web.Authenticate.OAuth (def, newCredential, oauthConsumerKey, oauthConsumerSecret)
 import Web.Twitter.Conduit (call, setCredential, TWInfo, twitterOAuth, update)
 import Web.MarkovBot.MarkovChain (generatePoem, Table)
 import Web.MarkovBot.Status (Status(..), statusIsRetweet)
 import System.Environment (lookupEnv)
+
+type URL = String
 
 getTwInfoFromEnv :: IO (Maybe TWInfo)
 getTwInfoFromEnv = do
@@ -41,11 +50,20 @@ getTwInfoFromEnv = do
                                                , oauthConsumerSecret = secret
                                                }
 
+textSourceFromRemoteTweetsCSV :: URL -> IO String
+textSourceFromRemoteTweetsCSV = fmap textSourceFromStatusesVector . statusesFromRemoteTweetsCSV
+
 textSourceFromTweetsCSV :: FilePath -> IO String
 textSourceFromTweetsCSV = fmap textSourceFromStatusesVector . statusesFromTweetsCSV
 
+decodeTweetsCSV :: BL.ByteString -> V.Vector Status
+decodeTweetsCSV = either (error "Failed to parse CSV file") id . decode HasHeader
+
 statusesFromTweetsCSV :: FilePath -> IO (V.Vector Status)
-statusesFromTweetsCSV path = either (error "Failed to parse CSV file") id . decode HasHeader <$> BL.readFile path
+statusesFromTweetsCSV path = decodeTweetsCSV <$> BL.readFile path
+
+statusesFromRemoteTweetsCSV :: URL -> IO (V.Vector Status)
+statusesFromRemoteTweetsCSV url = decodeTweetsCSV <$> ((^. responseBody) <$> get url)
 
 textSourceFromStatusesVector :: V.Vector Status -> String
 textSourceFromStatusesVector = intercalate "\n"
