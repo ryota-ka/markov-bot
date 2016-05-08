@@ -43,7 +43,7 @@ executable markov-bot-exe
   build-depends:       base
                      , markov-bot
                      , optparse-applicative
-                     , time
+                     , unix
   default-language:    Haskell2010
 
 test-suite markov-bot-test
