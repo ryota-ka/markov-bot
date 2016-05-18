@@ -1,0 +1,6 @@
+tweets.csv
+.git
+dist
+.dockerignore
+Dockerfile*
+**/.stack-work/

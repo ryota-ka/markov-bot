@@ -1,3 +1,5 @@
+tweets.csv
+
 ### https://raw.github.com/github/gitignore/fa441f903154d8159ef71db23d4816d802450fef/haskell.gitignore
 
 dist
@@ -51,12 +53,10 @@ Temporary Items
 # swap
 [._]*.s[a-w][a-z]
 [._]s[a-w][a-z]
-# persistent undo 
+# persistent undo
 *.un~
 # session
 Session.vim
 # temporary
 .netrwhist
 *~
-
-
