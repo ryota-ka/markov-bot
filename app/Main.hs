@@ -7,10 +7,10 @@ import Control.Monad (when)
 import Control.Monad.Fix (fix)
 import Data.Bool (bool)
 import Data.List (isPrefixOf)
+import Data.Time (addUTCTime, diffUTCTime, getCurrentTime, UTCTime)
 import Options.Applicative
 import System.Environment (getArgs)
 import System.Exit (exitFailure)
-import System.Posix.Time (epochTime)
 import Web.MarkovBot (getTwInfoFromEnv, textSourceFromRemoteTweetsCSV, textSourceFromTweetsCSV, postPoemWithTable)
 import Web.MarkovBot.MarkovChain (buildTable)
 
@@ -38,6 +38,9 @@ tweetsCSVP = strOption (
 optionsP :: Parser Options
 optionsP = Options <$> intervalP <*> tweetsCSVP
 
+waitUntil :: UTCTime -> IO ()
+waitUntil t = getCurrentTime >>= threadDelay . floor . realToFrac . (* 1000 ^ 2) . diffUTCTime t
+
 execute :: Options -> IO ()
 execute opts =
     let interval = optionsInterval opts
@@ -46,9 +49,9 @@ execute opts =
      in do
         !twInfo <- getTwInfoFromEnv >>= maybe (putStrLn "environment variables are not set" >> exitFailure) return
         !table <- bool textSourceFromTweetsCSV textSourceFromRemoteTweetsCSV isURL tweetsCSV >>= buildTable
-        !start <- (\t -> head . filter ((== 0) . (`mod` interval)) . map (+ t) $ [0..]) . fromEnum <$> epochTime
-        (* 1000000) . flip subtract start . fromEnum <$> epochTime >>= threadDelay
-        fix $ \loop -> postPoemWithTable twInfo table >> threadDelay (interval * 1000000) >> loop
+        now <- getCurrentTime
+        let schedule = map (flip addUTCTime now . toEnum . (* interval) . (* 1000 ^ 4)) $ [1 ..]
+        flip fix schedule $ \loop (t:ts) -> postPoemWithTable twInfo table >> waitUntil t >> loop ts
 
 main :: IO ()
 main = execParser (info (helper <*> optionsP) fullDesc) >>= execute
