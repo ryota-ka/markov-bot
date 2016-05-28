@@ -39,7 +39,7 @@ optionsP :: Parser Options
 optionsP = Options <$> intervalP <*> tweetsCSVP
 
 waitUntil :: UTCTime -> IO ()
-waitUntil t = getCurrentTime >>= threadDelay . floor . realToFrac . (* 1000 ^ 2) . diffUTCTime t
+waitUntil t = getCurrentTime >>= threadDelay . floor .  (* 1000 ^ 2) . diffUTCTime t
 
 execute :: Options -> IO ()
 execute opts =
