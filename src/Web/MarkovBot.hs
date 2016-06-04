@@ -8,6 +8,7 @@ module Web.MarkovBot(
   , postPoemWithTable
 ) where
 
+import Control.Exception (catch)
 import Control.Lens ((^.))
 import Control.Monad.Trans.Resource (runResourceT)
 import qualified Data.ByteString.Char8 as BS
@@ -26,7 +27,7 @@ import Network.HTTP.Conduit (
   )
 import Network.Wreq (get, responseBody)
 import Web.Authenticate.OAuth (def, newCredential, oauthConsumerKey, oauthConsumerSecret)
-import Web.Twitter.Conduit (call, setCredential, TWInfo, twitterOAuth, update)
+import Web.Twitter.Conduit (call, setCredential, TWInfo, TwitterError(TwitterErrorResponse), TwitterErrorMessage(..), twitterOAuth, update)
 import Web.MarkovBot.MarkovChain (generatePoem, Table)
 import Web.MarkovBot.Status (Status(..), statusIsRetweet)
 import System.Environment (lookupEnv)
@@ -74,8 +75,12 @@ textSourceFromStatusesVector = intercalate "\n"
                   . V.filter (not . statusIsRetweet)
 
 postPoemWithTable :: TWInfo -> Table -> IO ()
-postPoemWithTable twInfo table = do
+postPoemWithTable twInfo table = flip catch retry $ do
     text <- T.pack . take 140 <$> generatePoem table
     manager <- newManager tlsManagerSettings
     !status <- runResourceT $ call twInfo manager (update text)
     return ()
+  where
+    -- retry if the status is a duplicate
+    retry (TwitterErrorResponse _ _ [TwitterErrorMessage { twitterErrorCode = 187 }]) = postPoemWithTable twInfo table
+    retry e = print e
