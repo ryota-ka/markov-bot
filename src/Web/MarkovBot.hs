@@ -10,7 +10,6 @@ module Web.MarkovBot(
 
 import Control.Exception (catch)
 import Control.Lens ((^.))
-import Control.Monad.Trans.Resource (runResourceT)
 import qualified Data.ByteString.Char8 as BS
 import qualified Data.ByteString.Lazy.Char8 as BL
 import Data.Csv (decode, HasHeader(..))
@@ -78,7 +77,7 @@ postPoemWithTable :: TWInfo -> Table -> IO ()
 postPoemWithTable twInfo table = flip catch retry $ do
     text <- T.pack . take 140 <$> generatePoem table
     manager <- newManager tlsManagerSettings
-    !status <- runResourceT $ call twInfo manager (update text)
+    !status <- call twInfo manager (update text)
     return ()
   where
     -- retry if the status is a duplicate
