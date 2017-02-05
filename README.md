@@ -63,7 +63,6 @@ $ stack exec -- markov-bot-exe --tweets-csv /path/to/tweets.csv
 
 Option | Description | Example values
 --- | --- | ---
-`--interval` | The time between status updates (in seconds) | `1800` `86400`
 `--tweets-csv` | File path or URL for tweets.csv (required) | `./tweets.csv` `https://example.com/path/to/tweets.csv`
 
 # Using Docker
@@ -83,7 +82,7 @@ $ docker run -d -e "MARKOV_BOT_CONSUMER_KEY=<YOUR_CONSUMER_KEY>" \
 -e "MARKOV_BOT_ACCESS_TOKEN=<YOUR_ACCESS_TOKEN>" \
 -e "MARKOV_BOT_ACCESS_TOKEN_SECRET=<YOUR_TOKEN_SECRET>" \
 -v $(pwd)/tweets.csv:/markov-bot/tweets.csv \
-markov-bot -- --tweets-csv ./tweets.csv --interval 1800
+markov-bot -- --tweets-csv ./tweets.csv
 ```
 
 # Related links
