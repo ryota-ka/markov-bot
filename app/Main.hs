@@ -4,6 +4,7 @@ module Main where
 
 import Control.Monad (when)
 import Data.Bool (bool)
+import Data.Monoid ((<>))
 import Data.List (isPrefixOf)
 import Options.Applicative
 import System.Environment (getArgs)
