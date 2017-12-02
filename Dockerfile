@@ -1,17 +1,29 @@
-FROM samdoshi/haskell-stack:latest
+FROM debian:buster as build
+
+WORKDIR /workdir
+COPY . /workdir
 
 RUN apt-get update && \
-    apt-get install -y mecab libmecab-dev mecab-ipadic-utf8
-
-COPY . /markov-bot
-WORKDIR /markov-bot
-
+    apt-get install -y \
+        curl \
+        git \
+        libmecab-dev
+RUN curl -sSL https://get.haskellstack.org/ | sh
 RUN stack setup
+RUN stack build --ghc-options=-O2 --only-dependencies
+RUN stack build --ghc-options=-O2
+RUN stack --local-bin-path=/usr/bin install
 
-# Docker will cache this command as a layer, freeing us up to
-# modify source code without re-installing dependencies
-# (unless the .cabal file changes!)
-RUN stack build --only-dependencies
-
-RUN stack build
-ENTRYPOINT ["stack", "exec", "markov-bot-exe"]
+FROM debian:buster-slim
+RUN apt-get update -qq && \
+    apt-get install -y \
+        ca-certificates \
+        libmecab-dev \
+        libnss-lwres \
+        libnss3 \
+        mecab \
+        mecab-ipadic-utf8 \
+        && \
+    rm -rf /var/lib/apt/cache/*
+COPY --from=build /usr/bin/markov-bot /usr/bin
+ENTRYPOINT ["markov-bot"]
