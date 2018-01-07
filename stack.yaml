@@ -12,7 +12,8 @@ packages:
     commit: 2da6677fbd42bb77d3b6e61c02edfeebe248e184
 
 # Packages to be pulled from upstream that are not in the resolver (e.g., acme-missiles-0.3)
-extra-deps: []
+extra-deps:
+- mecab-0.4.0
 
 # Override default flag values for local packages and extra-deps
 flags: {}
@@ -37,3 +38,5 @@ extra-lib-dirs: [/usr/local/lib]
 
 # Allow a newer minor version of GHC than the snapshot specifies
 # compiler-check: newer-minor
+
+allow-newer: true
