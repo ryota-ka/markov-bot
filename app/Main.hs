@@ -33,7 +33,7 @@ execute opts =
         isURL = "http" `isPrefixOf` tweetsCSV
      in do
         !twInfo <- getTwInfoFromEnv >>= maybe (putStrLn "environment variables are not set" >> exitFailure) return
-        !table <- bool textSourceFromTweetsCSV textSourceFromRemoteTweetsCSV isURL tweetsCSV >>= buildTable
+        !table <- bool textSourceFromTweetsCSV textSourceFromRemoteTweetsCSV isURL tweetsCSV >>= buildTablej2
         postPoemWithTable twInfo table
 
 main :: IO ()

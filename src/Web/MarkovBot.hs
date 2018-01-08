@@ -75,7 +75,7 @@ textSourceFromStatusesVector = intercalate "\n"
 
 postPoemWithTable :: TWInfo -> Table -> IO ()
 postPoemWithTable twInfo table = flip catch retry $ do
-    text <- T.pack . take 140 <$> generatePoem table
+    text <- T.take 140 <$> generatePoem table
     manager <- newManager tlsManagerSettings
     !status <- call twInfo manager (update text)
     return ()

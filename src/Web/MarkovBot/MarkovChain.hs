@@ -1,34 +1,54 @@
-module Web.MarkovBot.MarkovChain (
-    buildTable
-  , generatePoem
-  , Table
-) where
+{-# LANGUAGE ExplicitForAll #-}
+{-# LANGUAGE OverloadedStrings #-}
 
-import Prelude hiding (Word)
-import Control.Monad (join)
-import qualified Data.Map as M
-import Data.List (unfoldr)
-import Data.Maybe (fromMaybe)
-import System.Random (randomRIO)
-import Data.Maybe (isNothing, fromMaybe, fromJust)
+module Web.MarkovBot.MarkovChain
+    ( buildTable
+    , generatePoem
+    , Table
+    ) where
+
 import Data.List (intercalate)
+import Data.Map (Map)
+import Data.Maybe (fromMaybe)
+import Data.Text (Text)
+import Data.Vector (Vector)
+import Prelude hiding (Word, words)
+import System.Random (randomRIO)
 import Text.MeCab
 
+import qualified Data.Map as M
+import qualified Data.Text as T
+import qualified Data.Vector as V
+
 data Word = Begin | Middle String | End deriving (Eq, Ord, Show)
-data Rose a = Rose a a [Rose a] deriving (Show)
+data Rose a = Rose (Vector a) (Vector (Rose a))
 
-type Table = M.Map (Word, Word) [Word]
+type Table = Map (Vector Word) (Vector Word)
 
-fromWord :: Word -> String
-fromWord (Middle x) = x
+class Samplable f where
+    sample :: forall a. f a -> IO a
+    sample xs = getAt xs <$> randomRIO (0, getLength xs - 1)
+    getAt :: f a -> Int -> a
+    getLength :: f a -> Int
+
+instance Samplable [] where
+    getAt = (!!)
+    getLength = length
+
+instance Samplable Vector where
+    getAt = (V.!)
+    getLength = V.length
+
+fromWord :: Word -> Text
+fromWord (Middle x) = T.pack x
 fromWord _ = ""
 
-fromWords :: [Word] -> String
-fromWords = concatMap fromWord
+fromWords :: Vector Word -> Text
+fromWords words = V.foldl (T.append) "" $ V.map fromWord words
 
-toWords :: [String] -> [Word]
-toWords [] = []
-toWords xs = Begin : init (convert xs)
+toWords :: [String] -> Vector Word
+toWords [] = V.empty
+toWords words = V.fromList $ Begin : init (convert words)
   where
     convert :: [String] -> [Word]
     convert [] = []
@@ -36,45 +56,41 @@ toWords xs = Begin : init (convert xs)
                      then End : Begin : convert xs
                      else Middle x : convert xs
 
-sample :: [a] -> IO a
-sample [] = error "empty list"
-sample xs = (xs !!) <$> randomRIO (0, length xs - 1)
+generateTable :: Int -> Vector Word -> Table
+generateTable order words
+  | V.length words < order = M.empty
+  | any (== End) (V.take order words) = generateTable order (V.unsafeTail words)
+  | otherwise =
+    let table = generateTable order (V.unsafeTail words)
+        in M.insertWith (V.++) (V.take order words) (V.singleton (words V.! order)) table
 
-generateTable :: [Word] -> Table
-generateTable (a:b:c:xs)
-  | a == End || b == End = generateTable rest
-  | otherwise = let table = generateTable rest in prepend (a, b) c table
-    where prepend key value map = M.insert key (value : (fromMaybe [] (M.lookup key map))) map
-          rest = b:c:xs
-generateTable _ = M.empty
+lookupNextWordCandidates :: Table -> Vector Word -> Vector Word
+lookupNextWordCandidates table key = fromMaybe V.empty $ M.lookup key table
 
-nextWords :: Table -> (Word, Word) -> [Word]
-nextWords table key = fromMaybe [] $ M.lookup key table
+buildRoseTree :: Table -> Vector Word -> Rose Word
+buildRoseTree table seed = Rose seed $ V.map (\w -> buildRoseTree table (V.unsafeTail seed `V.snoc` w)) (lookupNextWordCandidates table seed)
 
-buildRoseTree :: Table -> (Word, Word) -> Rose Word
-buildRoseTree table (a, b) = Rose a b $ map (\w -> buildRoseTree table (b, w)) (nextWords table (a, b))
+generateWordPathByRandomlyWalkingRoseTree :: Rose Word -> IO (Vector Word)
+generateWordPathByRandomlyWalkingRoseTree rose@(Rose words _) =
+    let go path (Rose words children) =
+          if null children || all (== End) words
+             then pure path
+             else sample children >>= go (path `V.snoc` V.unsafeLast words)
+        in (V.unsafeInit words V.++) <$> go V.empty rose
 
-randomlyWalkRoseTree :: Rose Word -> IO [Word]
-randomlyWalkRoseTree rose =
-    let f yieldedValues (Rose a b roses) =
-          if null roses || a == End || b == End
-             then pure (yieldedValues, Rose a b [])
-             else sample roses >>= f (b:yieldedValues)
-        in fst <$> f [] rose
-
-buildTable :: String -> IO Table
-buildTable source = do
+buildTable :: Int -> String -> IO Table
+buildTable order source = do
     mecab <- new ["mecab", "-l0"]
     nodeLines <- mapM (parseToNodes mecab) (lines source)
 
     let wordLines = map (filter (not . null) . map nodeSurface) nodeLines
         allWords = intercalate ["\n"] wordLines
-        table = generateTable (toWords allWords)
+        table = generateTable order (toWords allWords)
 
-    return table
+    pure table
 
-generatePoem :: Table -> IO String
+generatePoem :: Table -> IO Text
 generatePoem table = do
-    (_, first) <- sample . filter ((== Begin) . fst) . M.keys $ table
-    let tree = buildRoseTree table (Begin, first)
-    fromWords . reverse <$> randomlyWalkRoseTree tree
+    seed <- sample <$> filter ((== Begin) . V.unsafeHead) . M.keys $ table
+    let tree = buildRoseTree table seed
+    fromWords <$> generateWordPathByRandomlyWalkingRoseTree tree
