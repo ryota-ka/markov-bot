@@ -1,5 +1,5 @@
 name:                markov-bot
-version:             0.2.0.0
+version:             0.3.0.0
 synopsis:            generateSentence >>= postToTwitter
 description:         Please see README.md
 homepage:            https://github.com/ryota-ka/markov-bot
