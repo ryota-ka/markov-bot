@@ -15,6 +15,7 @@ import qualified Data.ByteString.Lazy.Char8 as BL
 import Data.Csv (decode, HasHeader(..))
 import Data.List (intercalate, isInfixOf)
 import qualified Data.Vector as V
+import Data.Text (Text)
 import qualified Data.Text as T
 import Network.HTTP.Conduit (
     newManager
@@ -50,10 +51,10 @@ getTwInfoFromEnv = do
                                                , oauthConsumerSecret = secret
                                                }
 
-textSourceFromRemoteTweetsCSV :: URL -> IO String
+textSourceFromRemoteTweetsCSV :: URL -> IO Text
 textSourceFromRemoteTweetsCSV = fmap textSourceFromStatusesVector . statusesFromRemoteTweetsCSV
 
-textSourceFromTweetsCSV :: FilePath -> IO String
+textSourceFromTweetsCSV :: FilePath -> IO Text
 textSourceFromTweetsCSV = fmap textSourceFromStatusesVector . statusesFromTweetsCSV
 
 decodeTweetsCSV :: BL.ByteString -> V.Vector Status
@@ -65,13 +66,16 @@ statusesFromTweetsCSV path = decodeTweetsCSV <$> BL.readFile path
 statusesFromRemoteTweetsCSV :: URL -> IO (V.Vector Status)
 statusesFromRemoteTweetsCSV url = decodeTweetsCSV <$> ((^. responseBody) <$> get url)
 
-textSourceFromStatusesVector :: V.Vector Status -> String
-textSourceFromStatusesVector = intercalate "\n"
+textSourceFromStatusesVector :: V.Vector Status -> Text
+textSourceFromStatusesVector = T.intercalate "\n"
                   . V.toList
                   . V.map statusText
-                  . V.filter (not . isInfixOf "http" . statusText)
-                  . V.filter (notElem '@' . statusText)
-                  . V.filter (not . statusIsRetweet)
+                  . V.filter (not . shouldReject)
+  where
+    shouldReject status =
+        T.isInfixOf "http" (statusText status)
+     || T.isInfixOf "@" (statusText status)
+     || statusIsRetweet status
 
 postPoemWithTable :: TWInfo -> Table -> IO ()
 postPoemWithTable twInfo table = flip catch retry $ do

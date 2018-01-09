@@ -6,7 +6,7 @@ module Web.MarkovBot.Status(
 import Data.Bool (bool)
 import qualified Data.ByteString.Char8 as B
 import Data.Csv ((.!), FromField, FromRecord, parseField, parseRecord, Record)
-import qualified Data.Text as T
+import Data.Text (Text)
 import Data.Time (UTCTime)
 import GHC.Generics
 import Text.Read (readMaybe)
@@ -16,12 +16,12 @@ data Status = Status {
   , statusInReplyToStatusId        :: Maybe Int
   , statusInReplyToUserId          :: Maybe Int
   , statusTimestamp                :: UTCTime
-  , statusSource                   :: String
-  , statusText                     :: String
+  , statusSource                   :: Text
+  , statusText                     :: Text
   , statusRetweetedStatusId        :: Maybe Int
   , statusRetweetedStatusUserId    :: Maybe Int
   , statusRetweetedStatusTimestamp :: Maybe UTCTime
-  , statusExpandedUrls             :: String
+  , statusExpandedUrls             :: Text
   } deriving (Show)
 
 instance FromField UTCTime where

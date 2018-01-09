@@ -20,7 +20,7 @@ import qualified Data.Map as M
 import qualified Data.Text as T
 import qualified Data.Vector as V
 
-data Word = Begin | Middle String | End deriving (Eq, Ord, Show)
+data Word = Begin | Middle Text | End deriving (Eq, Ord, Show)
 data Rose a = Rose (Vector a) (Vector (Rose a))
 
 type Table = Map (Vector Word) (Vector Word)
@@ -40,17 +40,17 @@ instance Samplable Vector where
     getLength = V.length
 
 fromWord :: Word -> Text
-fromWord (Middle x) = T.pack x
+fromWord (Middle x) = x
 fromWord _ = ""
 
 fromWords :: Vector Word -> Text
 fromWords words = V.foldl (T.append) "" $ V.map fromWord words
 
-toWords :: [String] -> Vector Word
+toWords :: [Text] -> Vector Word
 toWords [] = V.empty
 toWords words = V.fromList $ Begin : init (convert words)
   where
-    convert :: [String] -> [Word]
+    convert :: [Text] -> [Word]
     convert [] = []
     convert (x:xs) = if x == "\n"
                      then End : Begin : convert xs
@@ -78,12 +78,12 @@ generateWordPathByRandomlyWalkingRoseTree rose@(Rose words _) =
              else sample children >>= go (path `V.snoc` V.unsafeLast words)
         in (V.unsafeInit words V.++) <$> go V.empty rose
 
-buildTable :: Int -> String -> IO Table
+buildTable :: Int -> Text -> IO Table
 buildTable order source = do
     mecab <- new ["mecab", "-l0"]
-    nodeLines <- mapM (parseToNodes mecab) (lines source)
+    nodeLines <- mapM (parseToNodes mecab) (T.lines source)
 
-    let wordLines = map (filter (not . null) . map nodeSurface) nodeLines
+    let wordLines = map (filter (not . T.null) . map nodeSurface) nodeLines
         allWords = intercalate ["\n"] wordLines
         table = generateTable order (toWords allWords)
 
