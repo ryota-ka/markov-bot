@@ -34,6 +34,7 @@ $ docker run \
 Option | Description | Example values
 --- | --- | ---
 `--tweets-csv` | File path or URL for tweets.csv (required) | `./tweets.csv` `https://example.com/path/to/tweets.csv`
+`--order` | Order of Markov chain, in positive integer (optional) | `2` `3`
 
 # Related links
 
