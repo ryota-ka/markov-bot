@@ -1,3 +1,5 @@
+{-# LANGUAGE OverloadedStrings #-}
+
 module Web.MarkovBot.Status(
     Status(..)
   , statusIsRetweet
@@ -6,7 +8,7 @@ module Web.MarkovBot.Status(
 import Data.Bool (bool)
 import qualified Data.ByteString.Char8 as B
 import Data.Csv ((.!), FromField, FromRecord, parseField, parseRecord, Record)
-import Data.Text (Text)
+import Data.Text (replace, Text)
 import Data.Time (UTCTime)
 import GHC.Generics
 import Text.Read (readMaybe)
@@ -37,11 +39,14 @@ instance FromRecord Status where
                  <*> v .! 2
                  <*> v .! 3
                  <*> v .! 4
-                 <*> v .! 5
+                 <*> (unescapeEntities <$> (v .! 5))
                  <*> v .! 6
                  <*> v .! 7
                  <*> v .! 8
                  <*> v .! 9
+
+unescapeEntities :: Text -> Text
+unescapeEntities = replace "&lt;" "<" . replace "&gt;" ">" . replace "&amp;" "&"
 
 statusIsRetweet :: Status -> Bool
 statusIsRetweet status
