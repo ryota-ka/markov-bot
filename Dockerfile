@@ -12,7 +12,8 @@ RUN apk add --update --no-cache \
     build-base \
     curl \
     ghc \
-    git
+    git \
+    zlib-dev
 RUN curl -SL -o mecab-${MECAB_VERSION}.tar.gz ${MECAB_URL}
 RUN tar zxf mecab-${MECAB_VERSION}.tar.gz
 RUN cd mecab-${MECAB_VERSION} && \
