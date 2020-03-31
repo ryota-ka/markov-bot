@@ -4,11 +4,11 @@ Generates random sentences from your tweet history using the Markov chain, and p
 
 # Usage
 
-### 1. Obtain tweets.csv
+## 1. Obtain tweets.csv
 
 Download your Twitter archive from [Twitter](https://twitter.com/), which is available on `Settings > Account > "Request your archive"`
 
-### 2. Obtain credentials
+## 2. Obtain credentials
 
 Register your application on [Twitter Application Management](https://apps.twitter.com/) with "Read and Write" permissions at least, then set your credentials to the following environment variables.
 
@@ -17,7 +17,7 @@ Register your application on [Twitter Application Management](https://apps.twitt
 - `MARKOV_BOT_ACCESS_TOKEN`
 - `MARKOV_BOT_ACCESS_TOKEN_SECRET`
 
-### 3. Run
+## 3. Run
 
 ```sh
 $ docker run \
@@ -27,6 +27,74 @@ $ docker run \
   -e MARKOV_BOT_ACCESS_TOKEN_SECRET=... \
   ryotakameoka/markov-bot \
   --tweets-csv=...
+```
+
+# Scheduled execution on [Heroku](https://heroku.com/)
+
+Note that `tweets.csv` must be hosted somewhere (with a public URL).
+Personally I have a repository for the CSV file and deploy it to [Netlify](https://www.netlify.com/).
+
+Instead, you can also build your own image extending [`docker.io/ryotakameoka/markov-bot`](https://hub.docker.com/r/ryotakameoka/markov-bot/) which contains your `tweets.csv` inside and push it to Heroku Container Registry.
+
+## Install the Heroku CLI
+
+https://devcenter.heroku.com/articles/heroku-cli#download-and-install
+
+## Login to Heroku
+
+```sh
+$ heroku login
+```
+
+## Create an app
+
+Replace `<APP_NAME>` with an arbitrary name.
+
+```sh
+$ heroku apps:create <APP_NAME>
+```
+
+## Configure environment variables
+
+```sh
+$ heroku config:set --app=<APP_NAME> MARKOV_BOT_CONSUMER_KEY=...
+$ heroku config:set --app=<APP_NAME> MARKOV_BOT_CONSUMER_SECRET=...
+$ heroku config:set --app=<APP_NAME> MARKOV_BOT_ACCESS_TOKEN=...
+$ heroku config:set --app=<APP_NAME> MARKOV_BOT_ACCESS_TOKEN_SECRET=...
+```
+
+## Add [Heroku Scheduler](https://devcenter.heroku.com/articles/scheduler) to your app
+
+```sh
+$ heroku addons:create --app <APP_NAME> scheduler:standard
+```
+
+## Pull the pre-built Docker image from [Docker Hub](https://hub.docker.com/r/ryotakameoka/markov-bot/)
+
+```sh
+$ docker pull docker.io/ryotakameoka/markov-bot
+```
+
+## Push the Docker image to Heroku
+
+Note that Heroku Scheduler only supports "web" dyno.
+
+```sh
+$ heroku container:login
+$ docker tag docker.io/ryotakameoka/markov-bot registry.heroku.com/<APP_NAME>/web
+$ docker push registry.heroku.com/<APP_NAME>/web
+```
+
+## Open the Heroku Scheduler in the browser
+
+```sh
+$ heroku addons:open --app <APP_NAME> scheduler
+```
+
+## Press "Add Job" button and fill "Run Command" section as below
+
+```sh
+$ --tweets-csv <URL_OF_TWEETS_CSV>
 ```
 
 # Runtime options
