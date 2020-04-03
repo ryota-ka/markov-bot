@@ -10,7 +10,6 @@ module Web.MarkovBot(
 ) where
 
 import Control.Exception (catch)
-import Control.Lens ((^.))
 import Data.ByteString (ByteString)
 import qualified Data.ByteString.Char8 as BS
 import qualified Data.ByteString.Lazy.Char8 as BL
@@ -18,11 +17,7 @@ import qualified Data.Vector as V
 import Data.Text (Text)
 import qualified Data.Text as T
 import qualified Data.Text.IO as T
-import Network.HTTP.Conduit (
-    newManager
-  , tlsManagerSettings
-  )
-import Network.Wreq (get, responseBody)
+import Network.HTTP.Conduit (newManager, simpleHttp, tlsManagerSettings)
 import Web.Authenticate.OAuth (def, newCredential, oauthConsumerKey, oauthConsumerSecret)
 import Web.Twitter.Conduit (call, setCredential, TWInfo, TwitterError(TwitterErrorResponse), TwitterErrorMessage(..), twitterOAuth, update)
 import Web.MarkovBot.MarkovChain (generatePoem, Table)
@@ -65,10 +60,9 @@ statusesFromTweetJS path = decodeTweetJS <$> BS.readFile path
 
 statusesFromRemoteTweetJS :: URL -> IO (V.Vector Status)
 statusesFromRemoteTweetJS url = do
-  res <- get url
-  let resBodyLBS = res ^. responseBody
-      resBodyBS = BL.toStrict resBodyLBS
-      statuses = decodeTweetJS resBodyBS
+  lbs <- simpleHttp url
+  let bs = BL.toStrict lbs
+      statuses = decodeTweetJS bs
   pure statuses
 
 textSourceFromStatusesVector :: V.Vector Status -> Text
