@@ -83,6 +83,7 @@ Note that Heroku Scheduler only supports "web" dyno.
 $ heroku container:login
 $ docker tag docker.io/ryotakameoka/markov-bot registry.heroku.com/<APP_NAME>/web
 $ docker push registry.heroku.com/<APP_NAME>/web
+$ heroku container:release --app <APP_NAME> web
 ```
 
 ## Open the Heroku Scheduler in the browser
