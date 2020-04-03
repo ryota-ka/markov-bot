@@ -4,7 +4,7 @@ Generates random sentences from your tweet history using the Markov chain, and p
 
 # Usage
 
-## 1. Obtain tweets.csv
+## 1. Obtain tweet.js
 
 Download your Twitter archive from [Twitter](https://twitter.com/), which is available on `Settings > Account > "Request your archive"`
 
@@ -26,15 +26,15 @@ $ docker run \
   -e MARKOV_BOT_ACCESS_TOKEN=... \
   -e MARKOV_BOT_ACCESS_TOKEN_SECRET=... \
   ryotakameoka/markov-bot \
-  --tweets-csv=...
+  --tweet-js=...
 ```
 
 # Scheduled execution on [Heroku](https://heroku.com/)
 
-Note that `tweets.csv` must be hosted somewhere (with a public URL).
-Personally I have a repository for the CSV file and deploy it to [Netlify](https://www.netlify.com/).
+Note that `tweet.js` must be hosted somewhere (with a public URL).
+Personally I have a repository for the file and deploy it to [Netlify](https://www.netlify.com/).
 
-Instead, you can also build your own image extending [`docker.io/ryotakameoka/markov-bot`](https://hub.docker.com/r/ryotakameoka/markov-bot/) which contains your `tweets.csv` inside and push it to Heroku Container Registry.
+Instead, you can also build your own image extending [`docker.io/ryotakameoka/markov-bot`](https://hub.docker.com/r/ryotakameoka/markov-bot/) which contains your `tweet.js` inside and push it to Heroku Container Registry.
 
 ## Install the Heroku CLI
 
@@ -95,14 +95,14 @@ $ heroku addons:open --app <APP_NAME> scheduler
 ## Press "Add Job" button and fill "Run Command" section as below
 
 ```sh
-$ --tweets-csv <URL_OF_TWEETS_CSV>
+$ --tweet-js <URL_OF_TWEET_JS>
 ```
 
 # Runtime options
 
 Option | Description | Example values
 --- | --- | ---
-`--tweets-csv` | File path or URL for tweets.csv (required) | `./tweets.csv` `https://example.com/path/to/tweets.csv`
+`--tweet-js` | File path or URL for tweet.js (required) | `./tweet.js` `https://example.com/path/to/tweet.js`
 `--order` | Order of Markov chain, in positive integer (optional) | `2` `3`
 
 # Related links

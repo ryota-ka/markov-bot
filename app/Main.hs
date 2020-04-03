@@ -3,24 +3,22 @@
 module Main where
 
 import Control.Monad (unless)
-import Data.Monoid ((<>))
 import Data.List (isPrefixOf)
 import Options.Applicative
-import System.Environment (getArgs)
 import System.Exit (die, exitFailure)
-import Web.MarkovBot (getTwInfoFromEnv, textSourceFromRemoteTweetsCSV, textSourceFromTweetsCSV, postPoemWithTable)
+import Web.MarkovBot (getTwInfoFromEnv, textSourceFromRemoteTweetJS, textSourceFromTweetJS, postPoemWithTable)
 import Web.MarkovBot.MarkovChain (buildTable)
 
 data Options = Options
-  { optionsTweetsCSV :: String
+  { optionsTweetJS :: String
   , optionsOrder :: Int
   } deriving Show
 
-tweetsCSVP :: Parser FilePath
-tweetsCSVP = strOption $
-    long "tweets-csv"
+tweetJSP :: Parser FilePath
+tweetJSP = strOption $
+    long "tweet-js"
  <> metavar "FILE_OR_URL"
- <> help "Path or URL for tweets.csv"
+ <> help "Path or URL for tweet.js"
 
 orderP :: Parser Int
 orderP = option auto $
@@ -31,21 +29,21 @@ orderP = option auto $
  <> value 3
 
 optionsP :: Parser Options
-optionsP = Options <$> tweetsCSVP <*> orderP
+optionsP = Options <$> tweetJSP <*> orderP
 
 execute :: Options -> IO ()
 execute opts =
-    let tweetsCSV = optionsTweetsCSV opts
+    let tweetJS = optionsTweetJS opts
         order = optionsOrder opts
-        isURL = "http" `isPrefixOf` tweetsCSV
-        loadTweetsCSV =
+        isURL = "http" `isPrefixOf` tweetJS
+        loadTweetJS =
             if isURL
-                then textSourceFromRemoteTweetsCSV
-                else textSourceFromTweetsCSV
+                then textSourceFromRemoteTweetJS
+                else textSourceFromTweetJS
      in do
         unless (order > 0) $ die "order must be greater than 0"
         !twInfo <- getTwInfoFromEnv >>= maybe (putStrLn "environment variables are not set" >> exitFailure) return
-        !table <- loadTweetsCSV tweetsCSV >>= buildTable order
+        !table <- loadTweetJS tweetJS >>= buildTable order
         postPoemWithTable twInfo table
 
 main :: IO ()

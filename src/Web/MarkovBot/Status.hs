@@ -1,55 +1,62 @@
+{-# LANGUAGE NamedFieldPuns #-}
 {-# LANGUAGE OverloadedStrings #-}
+{-# LANGUAGE TypeApplications #-}
 
-module Web.MarkovBot.Status(
-    Status(..)
-  , statusIsRetweet
+module Web.MarkovBot.Status
+  ( Status(..)
+  , isRetweet
+  , loadFromTweetJS
 ) where
 
-import Data.Bool (bool)
-import qualified Data.ByteString.Char8 as B
-import Data.Csv ((.!), FromField, FromRecord, parseField, parseRecord, Record)
-import Data.Text (replace, Text)
-import Data.Time (UTCTime)
-import GHC.Generics
-import Text.Read (readMaybe)
+import Data.Aeson ((.:), FromJSON (parseJSON), Value, withObject)
+import qualified Data.Aeson as JSON (decode')
+import qualified Data.Aeson.Types as JSON (parseEither)
+import Data.Attoparsec.ByteString (Parser)
+import qualified Data.Attoparsec.ByteString as P (string, parseOnly, takeLazyByteString)
+import Data.ByteString (ByteString)
+import Data.Text (isPrefixOf, replace, Text)
+import Data.Vector (Vector)
 
-data Status = Status {
-    statusTweetId                  :: Int
-  , statusInReplyToStatusId        :: Maybe Int
-  , statusInReplyToUserId          :: Maybe Int
-  , statusTimestamp                :: UTCTime
-  , statusSource                   :: Text
-  , statusText                     :: Text
-  , statusRetweetedStatusId        :: Maybe Int
-  , statusRetweetedStatusUserId    :: Maybe Int
-  , statusRetweetedStatusTimestamp :: Maybe UTCTime
-  , statusExpandedUrls             :: Text
+newtype Tweet
+  = Tweet
+  { status :: Status
+  }
+
+instance FromJSON Tweet where
+  parseJSON = withObject "Tweet" $ \o -> do
+    status <- o .: "tweet"
+    pure Tweet { status }
+
+newtype Status = Status
+  { text :: Text
   } deriving (Show)
 
-instance FromField UTCTime where
-    parseField s =
-        case readMaybe (B.unpack s) of
-          Nothing -> fail "failed to parse UTCTime"
-          Just t  -> pure t
+instance FromJSON Status where
+  parseJSON = withObject "status" $ \o -> do
+    escapedText <- o .: "full_text"
+    let text = unescapeEntities escapedText
+    pure Status { text }
 
-instance FromRecord Status where
-    parseRecord v = Status
-                 <$> v .! 0
-                 <*> v .! 1
-                 <*> v .! 2
-                 <*> v .! 3
-                 <*> v .! 4
-                 <*> (unescapeEntities <$> (v .! 5))
-                 <*> v .! 6
-                 <*> v .! 7
-                 <*> v .! 8
-                 <*> v .! 9
+tweetJSP :: Parser Value
+tweetJSP = do
+  _ <- P.string "window.YTD.tweet.part0 = "
+  bs <- P.takeLazyByteString
+  let mvalue = JSON.decode' bs
+  case mvalue of
+    Nothing -> fail "Could not parse JSON"
+    Just x -> pure x
+
+loadFromTweetJS :: ByteString -> Either String (Vector Status)
+loadFromTweetJS bs = do
+  values <- P.parseOnly tweetJSP bs
+  tweets <- JSON.parseEither parseJSON values
+  let statuses = fmap getStatus tweets
+  pure statuses
+  where
+    getStatus Tweet { status } = status
 
 unescapeEntities :: Text -> Text
 unescapeEntities = replace "&lt;" "<" . replace "&gt;" ">" . replace "&amp;" "&"
 
-statusIsRetweet :: Status -> Bool
-statusIsRetweet status
-    = case statusRetweetedStatusId status of
-           (Just _) -> True
-           _        -> False
+isRetweet :: Status -> Bool
+isRetweet Status { text } = "RT @" `isPrefixOf` text

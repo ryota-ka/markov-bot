@@ -1,26 +1,23 @@
-{-# LANGUAGE OverloadedStrings #-}
 {-# LANGUAGE BangPatterns #-}
+{-# LANGUAGE NamedFieldPuns #-}
+{-# LANGUAGE OverloadedStrings #-}
 
 module Web.MarkovBot(
     getTwInfoFromEnv
-  , textSourceFromRemoteTweetsCSV
-  , textSourceFromTweetsCSV
+  , textSourceFromRemoteTweetJS
+  , textSourceFromTweetJS
   , postPoemWithTable
 ) where
 
 import Control.Exception (catch)
 import Control.Lens ((^.))
+import Data.ByteString (ByteString)
 import qualified Data.ByteString.Char8 as BS
 import qualified Data.ByteString.Lazy.Char8 as BL
-import Data.Csv (decode, HasHeader(..))
-import Data.List (intercalate, isInfixOf)
 import qualified Data.Vector as V
 import Data.Text (Text)
 import qualified Data.Text as T
-import Network.HTTP.Conduit (
-    newManager
-  , tlsManagerSettings
-  )
+import qualified Data.Text.IO as T
 import Network.HTTP.Conduit (
     newManager
   , tlsManagerSettings
@@ -29,7 +26,7 @@ import Network.Wreq (get, responseBody)
 import Web.Authenticate.OAuth (def, newCredential, oauthConsumerKey, oauthConsumerSecret)
 import Web.Twitter.Conduit (call, setCredential, TWInfo, TwitterError(TwitterErrorResponse), TwitterErrorMessage(..), twitterOAuth, update)
 import Web.MarkovBot.MarkovChain (generatePoem, Table)
-import Web.MarkovBot.Status (Status(..), statusIsRetweet)
+import Web.MarkovBot.Status (Status(..), isRetweet, loadFromTweetJS)
 import System.Environment (lookupEnv)
 
 type URL = String
@@ -51,37 +48,48 @@ getTwInfoFromEnv = do
                                                , oauthConsumerSecret = secret
                                                }
 
-textSourceFromRemoteTweetsCSV :: URL -> IO Text
-textSourceFromRemoteTweetsCSV = fmap textSourceFromStatusesVector . statusesFromRemoteTweetsCSV
+textSourceFromRemoteTweetJS :: URL -> IO Text
+textSourceFromRemoteTweetJS = fmap textSourceFromStatusesVector . statusesFromRemoteTweetJS
 
-textSourceFromTweetsCSV :: FilePath -> IO Text
-textSourceFromTweetsCSV = fmap textSourceFromStatusesVector . statusesFromTweetsCSV
+textSourceFromTweetJS :: FilePath -> IO Text
+textSourceFromTweetJS = fmap textSourceFromStatusesVector . statusesFromTweetJS
 
-decodeTweetsCSV :: BL.ByteString -> V.Vector Status
-decodeTweetsCSV = either (error "Failed to parse CSV file") id . decode HasHeader
+decodeTweetJS :: ByteString -> V.Vector Status
+decodeTweetJS bs =
+  case loadFromTweetJS bs of
+      Left e -> error e
+      Right x -> x
 
-statusesFromTweetsCSV :: FilePath -> IO (V.Vector Status)
-statusesFromTweetsCSV path = decodeTweetsCSV <$> BL.readFile path
+statusesFromTweetJS :: FilePath -> IO (V.Vector Status)
+statusesFromTweetJS path = decodeTweetJS <$> BS.readFile path
 
-statusesFromRemoteTweetsCSV :: URL -> IO (V.Vector Status)
-statusesFromRemoteTweetsCSV url = decodeTweetsCSV <$> ((^. responseBody) <$> get url)
+statusesFromRemoteTweetJS :: URL -> IO (V.Vector Status)
+statusesFromRemoteTweetJS url = do
+  res <- get url
+  let resBodyLBS = res ^. responseBody
+      resBodyBS = BL.toStrict resBodyLBS
+      statuses = decodeTweetJS resBodyBS
+  pure statuses
 
 textSourceFromStatusesVector :: V.Vector Status -> Text
 textSourceFromStatusesVector = T.intercalate "\n"
                   . V.toList
-                  . V.map statusText
+                  . V.map getText
                   . V.filter (not . shouldReject)
   where
+    getText Status { text } = text
     shouldReject status =
-        T.isInfixOf "http" (statusText status)
-     || T.isInfixOf "@" (statusText status)
-     || statusIsRetweet status
+      let Status { text } = status
+       in T.isInfixOf "http" text
+       || T.isInfixOf "@" text
+       || isRetweet status
 
 postPoemWithTable :: TWInfo -> Table -> IO ()
 postPoemWithTable twInfo table = flip catch retry $ do
     text <- T.take 140 <$> generatePoem table
+    T.putStrLn text
     manager <- newManager tlsManagerSettings
-    !status <- call twInfo manager (update text)
+    !_ <- call twInfo manager (update text)
     return ()
   where
     -- retry if the status is a duplicate
