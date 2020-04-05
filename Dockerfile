@@ -1,70 +1,33 @@
-FROM alpine as build
-
-ENV MECAB_VERSION 0.996
-ENV MECAB_URL https://drive.google.com/uc?export=download&id=0B4y35FiV1wh7cENtOXlicTFaRUE
+FROM nixos/nix:2.3
 
 WORKDIR /workdir
 COPY . /workdir
 
-RUN apk upgrade --update-cache --available
-RUN apk add --update --no-cache \
-    bash \
-    build-base \
-    curl \
-    ghc \
-    git \
-    zlib-dev
-RUN curl -SL -o mecab-${MECAB_VERSION}.tar.gz ${MECAB_URL}
-RUN tar zxf mecab-${MECAB_VERSION}.tar.gz
-RUN cd mecab-${MECAB_VERSION} && \
-    ./configure --enable-utf8-only --with-charset=utf8 && \
-    make && \
-    make install
-RUN curl -sSL https://get.haskellstack.org/ | sh
-RUN stack config set system-ghc true
-RUN stack setup
-RUN stack build --ghc-options=-O2 --only-dependencies
-RUN stack build --ghc-options=-O2
-RUN stack --local-bin-path=/usr/bin install
+RUN nix-channel --add https://nixos.org/channels/nixpkgs-unstable && \
+    nix-channel --update && \
+    nix-env -iA nixpkgs.stack nixpkgs.upx && \
+    stack build --system-ghc --no-nix-add-gc-roots --ghc-options=-O2 && \
+    stack --local-bin-path=/usr/bin install && \
+    upx -q -9 --brute /usr/bin/markov-bot && \
+    ln -s $(find /nix/store -maxdepth 1 \
+      -type d -name '*-gmp-*' \
+      -or \
+      -type d -name '*-libffi-*' \
+      -or \
+      -type d -name '*-libmecab-*' \
+      -or \
+      -type d -name '*-mecab-*' \
+      -or \
+      -type d -name '*-mecab-ipadic-*' \
+    ) /nix/var/nix/gcroots/ && \
+    nix-env -e stack upx && \
+    nix-collect-garbage && \
+    find /nix/store -maxdepth 1 -type f | xargs rm && \
+    rm -rf \
+      /nix/store/*-nixpkgs-* \
+      /nix/var/ \
+      /root/.stack \
+      /workdir
 
-
-FROM alpine
-
-ENV MECAB_VERSION 0.996
-ENV IPADIC_VERSION 2.7.0-20070801
-ENV MECAB_URL https://drive.google.com/uc?export=download&id=0B4y35FiV1wh7cENtOXlicTFaRUE
-ENV IPADIC_URL https://drive.google.com/uc?export=download&id=0B4y35FiV1wh7MWVlSDBCSXZMTXM
-
-RUN apk add --update --no-cache --virtual build-deps \
-        bash \
-        build-base \
-        curl \
-        git \
-        && \
-    cd && \
-    curl -SL -o mecab-${MECAB_VERSION}.tar.gz ${MECAB_URL} && \
-    tar zxf mecab-${MECAB_VERSION}.tar.gz && \
-    cd mecab-${MECAB_VERSION} && \
-    ./configure --enable-utf8-only --with-charset=utf8 && \
-    make && \
-    make install && \
-    curl -SL -o mecab-ipadic-${IPADIC_VERSION}.tar.gz ${IPADIC_URL} && \
-    tar zxf mecab-ipadic-${IPADIC_VERSION}.tar.gz && \
-    cd mecab-ipadic-${IPADIC_VERSION} && \
-    ./configure --with-charset=utf8 && \
-    make && \
-    make install && \
-    cd && \
-    rm -rf ./* && \
-    apk --no-cache add \
-        ca-certificates \
-        gmp-dev \
-        libffi \
-        libgcc \
-        libstdc++ \
-        && \
-    apk del --purge build-deps && \
-    rm -rf /var/cache/apk/*
-
-COPY --from=build /usr/bin/markov-bot /usr/bin
+WORKDIR /
 ENTRYPOINT ["markov-bot"]
