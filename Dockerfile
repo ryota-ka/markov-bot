@@ -1,5 +1,7 @@
 FROM nixos/nix:2.3
 
+ENV LANG C.UTF-8
+
 WORKDIR /workdir
 COPY . /workdir
 
