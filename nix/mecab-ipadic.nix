@@ -12,12 +12,6 @@ stdenv.mkDerivation {
 
   buildInputs = [ mecab-nodic nkf ];
 
-  prePatch = ''
-    nkf -w --overwrite *.csv
-    nkf -w --overwrite *.def
-    sed -i s/EUC-JP/UTF-8/ ./dicrc
-  '';
-
   configurePhase = ''
     ./configure --with-dicdir="$out" --with-charset=utf8
   '';
