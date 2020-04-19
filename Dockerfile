@@ -19,6 +19,8 @@ RUN nix-channel --add https://nixos.org/channels/nixpkgs-unstable && \
       -type d -name '*-mecab-*' \
       -or \
       -type d -name '*-mecab-ipadic-*' \
+      -or \
+      -type d -name '*-zlib-*' \
     ) /nix/var/nix/gcroots/ && \
     nix-env -e stack upx && \
     nix-collect-garbage && \
